@@ -1,0 +1,102 @@
+---
+title: "Clear the Runway!"
+subtitle: "Judging Models and Their Predictions"
+author: "By Elliot Cahn & Joseph Nardi"
+output: html_document
+runtime: shiny
+names: Elliot Cahn and Joseph Nardi 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+**OVERVIEW**
+
+This project explores the accuracy of two different whether models in terms of predicting daily maximum temperatures, daily minimum temperatures, and probabilities of precipitation. One of the two models examined, the Global Forecasting System (GFS), predicts the weather based solely on a predictive algorithm. The other model, which comes from the National Weather Service (NWS), is a primarily human prediction model that draws on data from a number of algorithms, including the GFS. In a field where improving model accuracy is the goal, understanding the strengths and weaknesses of each approach is paramount.
+
+**BASIC OUTLINE OF EACH PLOT**
+
+*Option Key:*
+
+-->"max_diff": average difference between observed maximum temperature and predicted maximum temperature
+
+-->"min_diff": average difference between observed minimum temperature and predicted minimum temperature
+
+-->"precip_correct": accuracy of precipitation predictions
+
+*Y-Axis Scale:*
+
+For max_diff and min_diff, positive values correspond to overprediction in degrees F, while negative degrees correspond with underpredictions. For precip_correct, the y-axis scale refers to the proportion of correct precipitation predictions.
+
+```{r, include=FALSE}
+library(ggplot2)
+library(maps)
+library(mapproj)
+library(shiny)
+library(readr)
+day_stats_10 <- read_csv("day_stats.csv")
+state_stats_10 <- read_csv("state_stats.csv")
+month_stats_10 <- read_csv("month_stats.csv")
+day_stats_10 <- day_stats_10[-c(1)]
+day_stats_10$date_diff <- as.factor(day_stats_10$date_diff)
+state_stats_10 <- state_stats_10[-c(1)]
+month_stats_10 <- month_stats_10[-c(1)]
+month_stats_10$month <- as.factor(month_stats_10$month)
+MainStates <- map_data("state")
+state_stats_10$state <- tolower(state_stats_10$state)
+```
+
+**PLOTS**
+
+The plot below compares the prediction accuracy of the GFS and NWS models for each month of the year. Interestingly, the GFS predictions are closer to the observed values for both daily maximums and minimums, but the NWS model is better at predicting precipitation. The former is quite surprising given that the NWS model takes into account GFS model predictions.
+
+```{r}
+# Creates dropdown menu for months
+inputPanel(
+  selectInput("y", label = "Prediction Type:", 
+             choices = c("max_diff", "min_diff", "precip_correct"))
+)
+
+renderPlot({
+  ggplot(data=month_stats_10[which(month_stats_10$pred_type == input$y),], aes(x=month, y=value, fill=model)) +
+    geom_bar(stat="identity",  position=position_dodge()) +
+    ggtitle("Model Comparison Per Month") +
+    ylab("Model Predictions compared to Observations")
+})
+```
+
+The plot below compares the prediction accuracy of the GFS and NWS models based on the number of days in advance the prediction was made. This distinction only appeared to affect the predicted daily maximums. While the NWS predictions become more accurate the later they were predicted, the opposite is true for the GFS model, which offers better predictions from three days out than it does from one day out.
+
+```{r}
+# Creates dropdown menu for days in advance
+inputPanel(
+  selectInput("z", label = "Prediction Type:", 
+             choices = c("max_diff", "min_diff", "precip_correct"))
+)
+
+renderPlot({
+  ggplot(data=day_stats_10[which(day_stats_10$pred_type == input$z),], aes(x=date_diff, y=value, fill=model)) +
+    geom_bar(stat="identity",  position=position_dodge()) +
+    ggtitle("Model Comparison Per Prediction Day in Advance") +
+    ylab("Model Predictions compared to Observations")
+})
+```
+
+The plot below compares the prediction accuracy of the GFS and NWS models based on the state where the weather is being predicted. For max_diff, the darker the color, the worse the NWS model performs compared to the GFS model. For min_diff, the lighter the color, the worse the NWS model performs compared to the GFS model. Finally, for precip_correct, the lighter the color, the better the NWS model perfoms compared to the GFS model.
+
+```{r}
+inputPanel(
+  selectInput("a", label = "Prediction Type:", 
+             choices = c("max_diff", "min_diff", "precip_correct"))
+)
+
+renderPlot({
+  ggplot() + 
+    coord_map() +
+    geom_map(data=state_stats_10[which(state_stats_10$pred_type == input$a),], aes(map_id = state,  fill= pred_diff), map = MainStates) +
+    expand_limits(x = MainStates$long, y = MainStates$lat) +
+    scale_fill_gradient(low="lightpink", high="purple4") +
+    ggtitle("Model Comparison Per State")
+})
+```
